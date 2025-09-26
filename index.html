@@ -1,119 +1,113 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Drowsiness Detection System</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial; }
-        body { background: linear-gradient(135deg, #1a2a6c, #b21f1f); color: white; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 30px; padding: 20px; }
-        h1 { font-size: 2.5rem; margin-bottom: 10px; }
-        .video-container { text-align: center; margin: 20px 0; }
-        #videoFeed { border: 3px solid #fff; border-radius: 10px; max-width: 100%; }
-        .controls { text-align: center; margin: 20px 0; }
-        button { padding: 12px 24px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; }
-        #startBtn { background: #27ae60; color: white; }
-        #stopBtn { background: #e74c3c; color: white; }
-        #testBtn { background: #f39c12; color: white; }
-        #resetBtn { background: #95a5a6; color: white; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
-        .stat-card { background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; text-align: center; }
-        .stat-value { font-size: 24px; font-weight: bold; margin: 10px 0; }
-    </style>
+    <link rel="stylesheet" href="style.css">
+    <!-- TensorFlow.js for browser-based face detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>💤 Drowsiness Detection System</h1>
-            <p>Real-time आँख tracking से नींद के signs detect करें</p>
+            <h1>💤 AI Drowsiness Detection System</h1>
+            <p>Real-time eye tracking for driver safety | Prevent accidents with AI technology</p>
         </header>
         
-        <div class="video-container">
-            <img id="videoFeed" src="/video_feed" width="640" height="480" alt="Live Camera">
+        <div class="content">
+            <div class="video-panel">
+                <div class="video-container">
+                    <!-- Web Camera Feed -->
+                    <video id="video" autoplay playsinline muted></video>
+                    <canvas id="canvas"></canvas>
+                    <div class="camera-overlay">
+                        <div class="overlay-text">🔴 Camera Feed Live</div>
+                        <div class="face-indicator">👤 Face Detection: <span id="faceStatus">Waiting...</span></div>
+                    </div>
+                </div>
+                
+                <div class="controls">
+                    <button id="startBtn" class="btn-primary">▶️ Start Detection</button>
+                    <button id="stopBtn" class="btn-danger" disabled>⏹️ Stop Detection</button>
+                    <button id="testSoundBtn" class="btn-warning">🔊 Test Alert Sound</button>
+                </div>
+                
+                <div class="instructions-panel">
+                    <h3>📋 How to Use:</h3>
+                    <ol>
+                        <li>Click <strong>"Allow"</strong> when browser asks for camera permission</li>
+                        <li>Click <strong>"Start Detection"</strong> to begin monitoring</li>
+                        <li>Sit in proper lighting with face visible to camera</li>
+                        <li>System will alert automatically if drowsiness detected</li>
+                        <li>After 4 alerts, emergency mode activates</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <div class="stats-panel">
+                <div class="alert-status" id="alertStatus">
+                    <h3>Status: Ready</h3>
+                    <p>Allow camera access and click Start to begin</p>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">📊 EAR Value</div>
+                        <div class="stat-value" id="earValue">0.000</div>
+                        <div class="stat-threshold">Threshold: 0.25</div>
+                        <div class="stat-info">(Eye Aspect Ratio)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">🎞️ Frame Count</div>
+                        <div class="stat-value" id="frameCount">0</div>
+                        <div class="stat-threshold">Threshold: 20</div>
+                        <div class="stat-info">(Consecutive low EAR)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">⚠️ Drowsy Events</div>
+                        <div class="stat-value" id="drowsyEvents">0</div>
+                        <div class="stat-threshold">Alert at: 4</div>
+                        <div class="stat-info">(Total alerts triggered)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">⚡ Performance</div>
+                        <div class="stat-value" id="detectionRate">0 FPS</div>
+                        <div class="stat-threshold">Real-time</div>
+                        <div class="stat-info">(Detection speed)</div>
+                    </div>
+                </div>
+                
+                <div class="alert-history">
+                    <h3>📋 Alert History</h3>
+                    <ul id="alertList">
+                        <li>No alerts yet. System ready!</li>
+                    </ul>
+                </div>
+                
+                <div class="status-indicators">
+                    <div class="status-item">
+                        <span class="status-dot" id="cameraStatus">🔴</span>
+                        Camera Access
+                    </div>
+                    <div class="status-item">
+                        <span class="status-dot" id="modelStatus">🔴</span>
+                        AI Model
+                    </div>
+                    <div class="status-item">
+                        <span class="status-dot" id="detectionStatus">🔴</span>
+                        Detection Active
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <div class="controls">
-            <button id="startBtn" onclick="startDetection()">▶️ Start Detection</button>
-            <button id="stopBtn" onclick="stopDetection()" disabled>⏹️ Stop Detection</button>
-            <button id="testBtn" onclick="testAlert()">🔊 Test Alert</button>
-            <button id="resetBtn" onclick="resetCounters()">🔄 Reset</button>
-        </div>
-        
-        <div class="stats">
-            <div class="stat-card">
-                <div>EAR Value</div>
-                <div class="stat-value" id="earValue">0.000</div>
-                <div>Threshold: 0.25</div>
-            </div>
-            <div class="stat-card">
-                <div>Frame Count</div>
-                <div class="stat-value" id="frameCount">0</div>
-                <div>Threshold: 20</div>
-            </div>
-            <div class="stat-card">
-                <div>Drowsy Events</div>
-                <div class="stat-value" id="drowsyEvents">0</div>
-                <div>Alert at: 4</div>
-            </div>
-            <div class="stat-card">
-                <div>Status</div>
-                <div class="stat-value" id="statusText">Inactive</div>
-                <div>Detection Status</div>
-            </div>
-        </div>
+        <footer>
+            <p>Drowsiness Detection System © 2024 | For Educational Purposes</p>
+        </footer>
     </div>
 
-    <script>
-        function updateStats() {
-            fetch('/get_stats')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('earValue').textContent = data.ear.toFixed(3);
-                    document.getElementById('frameCount').textContent = data.frame_count;
-                    document.getElementById('drowsyEvents').textContent = data.drowsy_events;
-                    document.getElementById('statusText').textContent = data.is_detecting ? 'Active' : 'Inactive';
-                    document.getElementById('statusText').style.color = data.is_detecting ? '#27ae60' : '#e74c3c';
-                });
-        }
-        
-        function startDetection() {
-            fetch('/start_detection', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('startBtn').disabled = true;
-                    document.getElementById('stopBtn').disabled = false;
-                    alert('Detection started');
-                });
-        }
-        
-        function stopDetection() {
-            fetch('/stop_detection', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('startBtn').disabled = false;
-                    document.getElementById('stopBtn').disabled = true;
-                    alert('Detection stopped');
-                });
-        }
-        
-        function testAlert() {
-            fetch('/test_alert', { method: 'POST' })
-                .then(() => alert('Alert sound tested'));
-        }
-        
-        function resetCounters() {
-            fetch('/reset_counters', { method: 'POST' })
-                .then(() => {
-                    alert('Counters reset');
-                    updateStats();
-                });
-        }
-        
-        setInterval(updateStats, 1000);
-        updateStats();
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
