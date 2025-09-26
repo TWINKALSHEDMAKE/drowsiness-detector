@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drowsiness Detection System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial; }
+        body { background: linear-gradient(135deg, #1a2a6c, #b21f1f); color: white; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; padding: 20px; }
+        h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .video-container { text-align: center; margin: 20px 0; }
+        #videoFeed { border: 3px solid #fff; border-radius: 10px; max-width: 100%; }
+        .controls { text-align: center; margin: 20px 0; }
+        button { padding: 12px 24px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; }
+        #startBtn { background: #27ae60; color: white; }
+        #stopBtn { background: #e74c3c; color: white; }
+        #testBtn { background: #f39c12; color: white; }
+        #resetBtn { background: #95a5a6; color: white; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
+        .stat-card { background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 24px; font-weight: bold; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💤 Drowsiness Detection System</h1>
+            <p>Real-time आँख tracking से नींद के signs detect करें</p>
+        </header>
+        
+        <div class="video-container">
+            <img id="videoFeed" src="/video_feed" width="640" height="480" alt="Live Camera">
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" onclick="startDetection()">▶️ Start Detection</button>
+            <button id="stopBtn" onclick="stopDetection()" disabled>⏹️ Stop Detection</button>
+            <button id="testBtn" onclick="testAlert()">🔊 Test Alert</button>
+            <button id="resetBtn" onclick="resetCounters()">🔄 Reset</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-card">
+                <div>EAR Value</div>
+                <div class="stat-value" id="earValue">0.000</div>
+                <div>Threshold: 0.25</div>
+            </div>
+            <div class="stat-card">
+                <div>Frame Count</div>
+                <div class="stat-value" id="frameCount">0</div>
+                <div>Threshold: 20</div>
+            </div>
+            <div class="stat-card">
+                <div>Drowsy Events</div>
+                <div class="stat-value" id="drowsyEvents">0</div>
+                <div>Alert at: 4</div>
+            </div>
+            <div class="stat-card">
+                <div>Status</div>
+                <div class="stat-value" id="statusText">Inactive</div>
+                <div>Detection Status</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateStats() {
+            fetch('/get_stats')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('earValue').textContent = data.ear.toFixed(3);
+                    document.getElementById('frameCount').textContent = data.frame_count;
+                    document.getElementById('drowsyEvents').textContent = data.drowsy_events;
+                    document.getElementById('statusText').textContent = data.is_detecting ? 'Active' : 'Inactive';
+                    document.getElementById('statusText').style.color = data.is_detecting ? '#27ae60' : '#e74c3c';
+                });
+        }
+        
+        function startDetection() {
+            fetch('/start_detection', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                    alert('Detection started');
+                });
+        }
+        
+        function stopDetection() {
+            fetch('/stop_detection', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('startBtn').disabled = false;
+                    document.getElementById('stopBtn').disabled = true;
+                    alert('Detection stopped');
+                });
+        }
+        
+        function testAlert() {
+            fetch('/test_alert', { method: 'POST' })
+                .then(() => alert('Alert sound tested'));
+        }
+        
+        function resetCounters() {
+            fetch('/reset_counters', { method: 'POST' })
+                .then(() => {
+                    alert('Counters reset');
+                    updateStats();
+                });
+        }
+        
+        setInterval(updateStats, 1000);
+        updateStats();
+    </script>
+</body>
+</html>
